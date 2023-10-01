@@ -1,0 +1,112 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+
+contract MetaSocialsToken is ERC20, Ownable {
+     // Liquidity locking variables
+    address public liquidityLockContract;
+    uint256 public lockEndTime;
+    IERC20 public lpToken; // The liquidity pool (LP) token
+
+
+      // Staking variables
+    mapping(address => uint256) public stakedBalances;
+    mapping(address => uint256) public stakingStartTimes;
+    mapping(address => uint256) public rewards;
+    
+    constructor() ERC20("MetaSocials", "MSOCIALS") {
+        _mint(msg.sender, 1000000000 * 10**18);
+    }
+
+    // Function to mint additional tokens, only callable by the owner
+    function mintTokens(address _to, uint256 _amount) public onlyOwner {
+        _mint(_to, _amount);
+    }
+
+    // Function to set the liquidity lock contract address, lock duration, and LP token address
+    function setLiquidityLock(address _lockContract, uint256 _lockDurationInDays, address _lpToken) public onlyOwner {
+        liquidityLockContract = _lockContract;
+        lockEndTime = block.timestamp + (_lockDurationInDays * 1 days);
+        lpToken = IERC20(_lpToken);
+    }
+
+    uint256 public vestingStartTime;
+    uint256 public vestingDuration = 6 * 30 days; // 6 months in seconds
+
+    // Function to withdraw liquidity after the lock duration has ended
+    function withdrawLiquidity() public onlyOwner {
+        require(msg.sender == liquidityLockContract, "Only the liquidity lock contract can call this function");
+        require(block.timestamp >= lockEndTime, "Lock duration has not ended yet");
+
+        uint256 balance = lpToken.balanceOf(address(this));
+        require(balance > 0, "No liquidity to withdraw");
+
+        // Transfer the liquidity to the liquidity lock contract
+        lpToken.transfer(owner(), balance);
+    }
+
+    // Function for users to stake tokens
+    function stakeTokens(uint256 _amount) public {
+        require(_amount > 0, "Amount must be greater than 0");
+        require(_amount <= balanceOf(msg.sender), "Insufficient balance");
+
+        // Update staking data
+        stakedBalances[msg.sender] += _amount;
+        stakingStartTimes[msg.sender] = block.timestamp;
+
+        // Transfer tokens to this contract
+        transfer(address(this), _amount);
+    }
+
+    // Function for users to withdraw staked tokens and claim rewards
+    function withdrawStake() public {
+        require(stakedBalances[msg.sender] > 0, "No stake to withdraw");
+
+        uint256 stakedAmount = stakedBalances[msg.sender];
+        uint256 stakingStartTime = stakingStartTimes[msg.sender];
+        uint256 stakingDuration = block.timestamp - stakingStartTime;
+        uint256 reward = calculateReward(stakedAmount, stakingDuration);
+
+        // Update user's rewards
+        rewards[msg.sender] += reward;
+
+        // Reset staking data
+        stakedBalances[msg.sender] = 0;
+        stakingStartTimes[msg.sender] = 0;
+
+        // Transfer staked amount + reward back to the user
+        transfer(msg.sender, stakedAmount + reward);
+    }
+   
+   
+   // Function to calculate staking rewards based on staked amount and duration
+    function calculateReward(uint256 _stakedAmount, uint256 _stakingDuration) internal pure returns (uint256) {
+        // Implement your reward calculation logic here (e.g., based on staked amount and duration)
+        // This is a simplified example; you can adjust the formula to your project's needs
+        uint256 reward = (_stakedAmount * _stakingDuration) / (1 days);
+
+        return reward;
+    }
+
+    // Function to allow users to burn tokens
+    function burnTokens(uint256 _amount) public {
+        require(_amount > 0, "Amount must be greater than 0");
+        require(_amount <= balanceOf(msg.sender), "Insufficient balance");
+
+        _burn(msg.sender, _amount);
+    }
+
+    // Function to restrict token transfers during the vesting period
+    function transfer(address _recipient, uint256 _amount) public override returns (bool) {
+        // Check if the vesting period has passed
+        require(block.timestamp >= vestingStartTime + vestingDuration, "Vesting period has not ended yet");
+
+        // Perform the transfer if the vesting period has passed
+        return super.transfer(_recipient, _amount);
+    }
+
+
+
+}
