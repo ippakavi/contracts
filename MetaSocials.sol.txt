@@ -1,30 +1,30 @@
 // SPDX-License-Identifier: MIT
+
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-contract MetaSocialsToken is ERC20, Ownable {
-     // Liquidity locking variables
+contract MetaSocials is Ownable, ERC20 {
+    using SafeERC20 for IERC20;
+
+    constructor() ERC20("MetaSocials9177", "MSOCIALS9177") Ownable(msg.sender) {
+        _mint(owner(), 10_000_000_000 * 10**18);
+    }
+
+ // Liquidity locking variables
     address public liquidityLockContract;
     uint256 public lockEndTime;
     IERC20 public lpToken; // The liquidity pool (LP) token
+    uint256 public liquidityLockDuration; // Duration in seconds
 
 
       // Staking variables
     mapping(address => uint256) public stakedBalances;
     mapping(address => uint256) public stakingStartTimes;
     mapping(address => uint256) public rewards;
-    
-    constructor() ERC20("MetaSocials", "MSOCIALS") {
-        _mint(msg.sender, 1000000000 * 10**18);
-    }
-
-    // Function to mint additional tokens, only callable by the owner
-    function mintTokens(address _to, uint256 _amount) public onlyOwner {
-        _mint(_to, _amount);
-    }
-
+     
     // Function to set the liquidity lock contract address, lock duration, and LP token address
     function setLiquidityLock(address _lockContract, uint256 _lockDurationInDays, address _lpToken) public onlyOwner {
         liquidityLockContract = _lockContract;
@@ -107,6 +107,19 @@ contract MetaSocialsToken is ERC20, Ownable {
         return super.transfer(_recipient, _amount);
     }
 
+    // Function to log a transaction to a contract address
+    function logTransaction(address _recipient, uint256 _amount) public onlyOwner {
+        // You can add any custom logic or checks here before logging the transaction.
+        // For simplicity, this function logs the transaction by emitting an event.
+        
+        emit TransactionLogged(_recipient, _amount, block.timestamp);
+    }
+
+    // Define an event to log the transaction details
+    event TransactionLogged(address indexed recipient, uint256 amount, uint256 timestamp);
 
 
+   
+
+   
 }
